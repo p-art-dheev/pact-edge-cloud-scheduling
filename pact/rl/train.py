@@ -59,7 +59,7 @@ def pad_batch(recs):
 def train(mode="constrained", epsilon=0.05, iters=120, horizon=90.0,
           base_rate=9.0, lr=3e-4, clip=0.2, epochs=4, minibatch=512,
           w_carbon=0.5, hidden=96, seed=0, out="models/pact.pt",
-          warmup=3, log_every=5, verbose=True):
+          warmup=3, log_every=5, verbose=True, cfg_overrides=None):
     torch.manual_seed(seed)
     net = ActorCritic(hidden=hidden)
     opt = torch.optim.Adam(net.parameters(), lr=lr)
@@ -68,6 +68,8 @@ def train(mode="constrained", epsilon=0.05, iters=120, horizon=90.0,
 
     cfg = SimConfig(horizon=horizon, base_rate=base_rate, epsilon=epsilon,
                     start_time=18.0 * 3600)   # into the evening ramp
+    for k, v in (cfg_overrides or {}).items():
+        setattr(cfg, k, v)
 
     t_start = time.time()
     for it in range(iters):
@@ -179,6 +181,17 @@ if __name__ == "__main__":
     ap.add_argument("--w-carbon", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="models/pact.pt")
+    ap.add_argument("--workload", default="synthetic")
+    ap.add_argument("--trace-scale", type=float, default=0.5)
+    ap.add_argument("--deadline-scale", type=float, default=1.0)
+    ap.add_argument("--trace-max-jobs", type=int, default=500)
     a = ap.parse_args()
+    ov = {}
+    if a.workload == "rezaee":
+        ov = {"workload": "rezaee", "trace_scale": a.trace_scale,
+              "deadline_scale": a.deadline_scale, "n_edge": 30, "n_fog": 3,
+              "servers_per_fog": 2, "cloud_servers": 1,
+              "trace_max_jobs": a.trace_max_jobs}
     train(mode=a.mode, epsilon=a.epsilon, iters=a.iters, horizon=a.horizon,
-          base_rate=a.rate, w_carbon=a.w_carbon, seed=a.seed, out=a.out)
+          base_rate=a.rate, w_carbon=a.w_carbon, seed=a.seed, out=a.out,
+          cfg_overrides=ov)

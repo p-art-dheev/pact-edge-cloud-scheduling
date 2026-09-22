@@ -1,0 +1,72 @@
+{
+  "all-cloud (floor)": {
+    "carbon_g": 156.52820161077204,
+    "carbon_ci": 1.6040840244066397,
+    "viol_rate": 0.0,
+    "viol_ci": 0.0,
+    "unfinished": 0
+  },
+  "HEFT": {
+    "carbon_g": 156.6890302447306,
+    "carbon_ci": 1.8972779819692396,
+    "viol_rate": 0.0,
+    "viol_ci": 0.0,
+    "unfinished": 0
+  },
+  "Greedy-Latency": {
+    "carbon_g": 157.6683120724443,
+    "carbon_ci": 1.587637896897392,
+    "viol_rate": 0.0,
+    "viol_ci": 0.0,
+    "unfinished": 0
+  },
+  "PACT": {
+    "carbon_g": 178.2029910697936,
+    "carbon_ci": 0.7621816726298409,
+    "viol_rate": 0.0004477350515053174,
+    "viol_ci": 0.00043879103723988767,
+    "unfinished": 0.6666666666666666
+  },
+  "MERSEM-Carbon": {
+    "carbon_g": 171.2152089024781,
+    "carbon_ci": 1.4773224208811264,
+    "viol_rate": 0.0024444444444444444,
+    "viol_ci": 0.0015704178888687598,
+    "unfinished": 0.6666666666666666
+  },
+  "MERSEM-Balanced": {
+    "carbon_g": 171.2152149516632,
+    "carbon_ci": 1.4844194293869861,
+    "viol_rate": 0.0024444444444444444,
+    "viol_ci": 0.0015704178888687598,
+    "unfinished": 0.6666666666666666
+  },
+  "Greedy-Carbon": {
+    "carbon_g": 184.59312534442302,
+    "carbon_ci": 3.2050633371617074,
+    "viol_rate": 0.010795351205849187,
+    "viol_ci": 0.0007385131401341843,
+    "unfinished": 7
+  },
+  "MERSEM-SLA": {
+    "carbon_g": 351.7500883322275,
+    "carbon_ci": 5.918218216855877,
+    "viol_rate": 0.02186948321349071,
+    "viol_ci": 0.0084434960392196,
+    "unfinished": 17
+  },
+  "all-fog": {
+    "carbon_g": 363.090874531229,
+    "carbon_ci": 0.5587434595182805,
+    "viol_rate": 0.002273295818605036,
+    "viol_ci": 0.0024817230500269478,
+    "unfinished": 0
+  },
+  "Random": {
+    "carbon_g": 365.1136278041022,
+    "carbon_ci": 5.164204617782635,
+    "viol_rate": 0.048510933529090715,
+    "viol_ci": 0.013031083206041004,
+    "unfinished": 47.333333333333336
+  }
+}

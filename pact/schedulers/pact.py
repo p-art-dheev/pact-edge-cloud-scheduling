@@ -71,6 +71,18 @@ class PACT(Scheduler):
         if n.has_solar:
             ci *= (1.0 - sim.carbon.solar_fraction(sim.t))
         g = e_kwh * ci
+
+        # Waking a gated node costs its idle draw for the whole gate period,
+        # which is the dominant carbon effect under power gating. Without this
+        # term the reward treats a sleeping machine as free to start up, the
+        # policy spreads work across many nodes, and consolidation -- the single
+        # biggest lever on this workload -- is invisible to it.
+        asleep = (n.busy_cores == 0
+                  and (sim.t - n.last_active) > sim.cfg.gate_idle_s)
+        if asleep:
+            wake_kwh = n.power_w(0.0) * sim.cfg.gate_idle_s / 3.6e6
+            g += wake_kwh * ci
+
         src = sim._input_location(task, job)
         g += sim.transfer_carbon(src, nid, task.in_bytes)
         return g

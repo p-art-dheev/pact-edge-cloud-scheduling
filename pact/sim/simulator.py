@@ -48,9 +48,10 @@ class Metrics:
     per_origin: dict = field(default_factory=dict)
     tier_carbon: dict = field(default_factory=dict)
     orch_cpu_s: float = 0.0
+    jobs_unfinished: int = 0
 
     def violation_rate(self) -> float:
-        n = self.jobs_done + self.jobs_dropped
+        n = self.jobs_done + self.jobs_dropped + self.jobs_unfinished
         return self.jobs_violated / n if n else 0.0
 
     def weighted_violation_rate(self) -> float:
@@ -82,7 +83,13 @@ class Simulator:
         self.nodes: list[Node] = []
         self._build_infra()
         self.carbon = CarbonTrace(cfg.n_regions(), seed=s)
-        self.wl = WorkloadGenerator(cfg, self.rng_wl)
+        if getattr(cfg, "workload", "synthetic") == "rezaee":
+            from .rezaee import RezaeeWorkload, load_cache
+            self.wl = RezaeeWorkload(load_cache(cfg.trace_cache), self.rng_wl, cfg)
+            self.trace_driven = True
+        else:
+            self.wl = WorkloadGenerator(cfg, self.rng_wl)
+            self.trace_driven = False
 
         self.t = cfg.start_time
         self.t_end = cfg.start_time + cfg.horizon
@@ -97,6 +104,8 @@ class Simulator:
 
     def _build_infra(self):
         c = self.cfg
+        if getattr(c, "workload", "synthetic") == "rezaee":
+            return self._build_infra_rezaee()
         nid = 0
         for i in range(c.n_edge):
             cam = i % 2 == 0
@@ -127,6 +136,46 @@ class Simulator:
                 memory_gb=256.0, p_idle=[120.0, 155.0][s % 2],
                 p_max=[350.0, 420.0][s % 2],
             ))
+            nid += 1
+        self.edge_ids = [n.nid for n in self.nodes if n.tier == Tier.EDGE]
+
+    def _build_infra_rezaee(self):
+        """Machines sized to the dataset's OWN reported speeds.
+
+        The file states BaseLineCpuCloudMIPS = 2,356,000, Fog = 524,567 and
+        IoT = 49,500, and its per-task runtimes are exactly MI divided by those
+        figures -- so they are per-core speeds for one task. Using them verbatim
+        reproduces the dataset's own timings, and parallelism comes from core
+        count. Power figures remain ours (vendor TDP class), since the dataset
+        reports none.
+        """
+        from .rezaee import load_cache
+        c = self.cfg
+        mips = load_cache(c.trace_cache)["mips"]
+        m_cloud, m_fog, m_iot = mips["cloud"], mips["fog"], mips["iot"]
+        nid = 0
+        for i in range(c.n_edge):
+            self.nodes.append(Node(
+                nid=nid, name=f"iot{i}", tier=Tier.EDGE,
+                region=(i % max(1, c.n_fog)) + 1,
+                cores=2, mips_per_core=m_iot, memory_gb=4.0,
+                p_idle=3.0, p_max=12.0, has_solar=(i % 2 == 0)))
+            nid += 1
+        for f in range(c.n_fog):
+            for k in range(c.servers_per_fog):
+                self.nodes.append(Node(
+                    nid=nid, name=f"fog{f}-s{k}", tier=Tier.FOG, region=f + 1,
+                    cores=[16, 24, 32][k % 3], mips_per_core=m_fog,
+                    memory_gb=[64.0, 96.0, 128.0][k % 3],
+                    p_idle=[45.0, 70.0, 95.0][k % 3],
+                    p_max=[140.0, 205.0, 270.0][k % 3],
+                    has_solar=(k == 0)))
+                nid += 1
+        for k in range(c.cloud_servers):
+            self.nodes.append(Node(
+                nid=nid, name=f"cloud-s{k}", tier=Tier.CLOUD, region=0,
+                cores=[48, 64][k % 2], mips_per_core=m_cloud, memory_gb=512.0,
+                p_idle=[120.0, 155.0][k % 2], p_max=[350.0, 420.0][k % 2]))
             nid += 1
         self.edge_ids = [n.nid for n in self.nodes if n.tier == Tier.EDGE]
 
@@ -221,15 +270,21 @@ class Simulator:
     def run(self):
         c = self.cfg
         t = self.t
-        # Seed the arrival stream.
-        while t < self.t_end:
-            t += self.wl.next_interarrival(t)
-            if t >= self.t_end:
-                break
-            origin = self.edge_ids[self.rng_wl.randrange(len(self.edge_ids))]
-            w = self.wl.class_weights(t)
-            jc = JobClass(self.rng_wl.choices([0, 1, 2], weights=w)[0])
-            self._push(t, EV_ARRIVAL, (origin, jc))
+        if self.trace_driven:
+            # Replay the dataset's own submission times -- real burstiness,
+            # not a sampled arrival process.
+            for at, rec, origin in self.wl.arrivals(
+                    self.t, self.t_end, self.edge_ids, c.trace_scale):
+                self._push(at, EV_ARRIVAL, (origin, rec))
+        else:
+            while t < self.t_end:
+                t += self.wl.next_interarrival(t)
+                if t >= self.t_end:
+                    break
+                origin = self.edge_ids[self.rng_wl.randrange(len(self.edge_ids))]
+                w = self.wl.class_weights(t)
+                jc = JobClass(self.rng_wl.choices([0, 1, 2], weights=w)[0])
+                self._push(t, EV_ARRIVAL, (origin, jc))
 
         tick = c.start_time
         while tick < self.t_end:
@@ -246,8 +301,41 @@ class Simulator:
             if kind == EV_END:
                 break
             self._handle(kind, payload)
+        self.finalise_unfinished()
         self.finalise_orchestration()
         return self.m
+
+    def finalise_unfinished(self):
+        """Book jobs still in flight when the window closes.
+
+        Without this a scheduler can hide violations simply by being slow:
+        unfinished jobs are never counted, so making everything slower REDUCES
+        the measured violation rate. During training the policy found exactly
+        that exploit -- completed jobs fell from 442 to 190 while the reported
+        violation rate sat at 0%. Any job whose deadline has already passed is
+        counted as violated; any job still within its deadline is left out of
+        the denominator, since it may yet succeed.
+        """
+        for job in self.jobs.values():
+            if job.complete or job.dropped:
+                continue
+            if self.t < job.deadline_abs:
+                continue
+            job.violated = True
+            w = CLASS_WEIGHT[job.jclass]
+            self.m.jobs_violated += 1
+            self.m.jobs_unfinished += 1
+            self.m.weighted_total += w
+            self.m.weighted_violation += w
+            pc = self.m.per_class.setdefault(job.jclass, {"n": 0, "v": 0, "lat": []})
+            pc["n"] += 1
+            pc["v"] += 1
+            po = self.m.per_origin.setdefault(job.origin_node, {"n": 0, "v": 0})
+            po["n"] += 1
+            po["v"] += 1
+            cb = getattr(self.sched, "on_job_end", None)
+            if cb is not None:
+                cb(job)
 
     def finalise_orchestration(self):
         """Charge the orchestrator for the CPU its scheduler actually used.
@@ -276,8 +364,11 @@ class Simulator:
 
     def _handle(self, kind: int, payload):
         if kind == EV_ARRIVAL:
-            origin, jc = payload
-            job = self.wl.make_job(self.t, origin, jc)
+            origin, spec = payload
+            if self.trace_driven:
+                job = self.wl.make_job_from_record(spec, self.t, origin)
+            else:
+                job = self.wl.make_job(self.t, origin, spec)
             self.jobs[job.job_id] = job
             for tid in job.entry:
                 self._push(self.t, EV_READY, (job.job_id, tid))

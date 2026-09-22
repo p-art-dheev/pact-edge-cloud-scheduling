@@ -27,7 +27,7 @@ def run_one(cfg: SimConfig, scheduler, seed: int):
 
 
 def summarise(sim, m, wall: float):
-    n = m.jobs_done + m.jobs_dropped
+    n = m.jobs_done + m.jobs_dropped + m.jobs_unfinished
     per_class = {}
     for jc, d in m.per_class.items():
         per_class[int(jc)] = {
@@ -43,6 +43,7 @@ def summarise(sim, m, wall: float):
         "jobs": n,
         "done": m.jobs_done,
         "dropped": m.jobs_dropped,
+        "unfinished": m.jobs_unfinished,
         "viol_rate": m.violation_rate(),
         "w_viol_rate": m.weighted_violation_rate(),
         "carbon_g": m.total_carbon(),

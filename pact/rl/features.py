@@ -84,7 +84,8 @@ def node_rows(sim, task, job, cands) -> np.ndarray:
             _clip(move / span),
             _clip(margin),
             1.0 if task.stage in n.cached_images else 0.0,
-            n.thermal_load,
+            1.0 if (n.busy_cores == 0 and
+                    (sim.t - n.last_active) > sim.cfg.gate_idle_s) else 0.0,
         )
 
     # DEFER: attractive when slack is large and the grid is currently dirty.

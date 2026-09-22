@@ -93,7 +93,8 @@ def evaluate(sim, genome, keys, n_jobs, cls_w, archetypes, ts):
     for jc in (0, 1, 2):
         if per_class_stages[jc] == 0:
             continue
-        dl = CLASS_DEADLINE[JobClass(jc)]
+        dl = (sim.wl.mean_deadline(jc) if hasattr(sim.wl, "mean_deadline")
+              else CLASS_DEADLINE[JobClass(jc)])
         lat = per_class_lat[jc] * (1.0 + 2.0 * worst_cong)
         w = cls_w[jc] / total_w
         viol += w * (1.0 if lat > dl else max(0.0, 1.0 - (dl - lat) / dl) * 0.15)
@@ -103,7 +104,15 @@ def evaluate(sim, genome, keys, n_jobs, cls_w, archetypes, ts):
 
 
 def build_archetypes(sim):
-    """Measure (mi, in_bytes) per (class, stage) from one probe job each."""
+    """Measure (mi, in_bytes) per (class, stage) from probe jobs.
+
+    On the trace-driven workload there is no generator to probe, so archetypes
+    are averaged over a sample of real records instead. This keeps MERSEM
+    planning over job archetypes, which is the strongest faithful reading of
+    epoch-ahead job-to-VM planning when the jobs do not exist yet.
+    """
+    if getattr(sim, "trace_driven", False):
+        return _archetypes_from_trace(sim)
     arch, keys = {}, set()
     base = sim.wl._next_job
     for jc in JobClass:
@@ -120,3 +129,22 @@ def build_archetypes(sim):
         keys.update(agg.keys())
     sim.wl._next_job = base   # undo probe allocation
     return arch, sorted(keys)
+
+
+def _archetypes_from_trace(sim, sample=300):
+    """Average (mi, in_bytes) per (class, stage) over real trace records."""
+    recs = sim.wl.recs
+    step = max(1, len(recs) // sample)
+    acc = {}
+    for r in recs[::step]:
+        jc = int(r["jclass"])
+        n_edges = max(1, r["n_edges"])
+        w = r["sum_edge_w"] / n_edges * sim.wl.KB
+        for tid, t in r["tasks"].items():
+            k = (jc, f"s{tid % 8}")
+            mi, ib, n = acc.get(k, (0.0, 0.0, 0))
+            acc[k] = (mi + t["mi"],
+                      ib + max(1.0, len(t["preds"])) * w,
+                      n + 1)
+    arch = {k: (v[0] / v[2], v[1] / v[2]) for k, v in acc.items()}
+    return arch, sorted(arch)

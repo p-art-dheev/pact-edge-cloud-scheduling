@@ -35,6 +35,74 @@ as a purely carbon-greedy policy that violates 41% of deadlines.
 - At ε = 2% PACT still runs at 24.7 g with 1.73% violations, so the advantage
   is **not** bought by trading SLA away.
 
+## Results on the paper's own benchmark — where the method does NOT help
+
+We replaced the synthetic workload with the dataset the paper cites
+([Rezaee & Adabi, Zenodo 10.5281/zenodo.4667690](https://doi.org/10.5281/zenodo.4667690),
+CC-BY-4.0, 51,895 jobs / 1.3M tasks). DAG structures, task compute, memory,
+deadlines, arrival times and per-tier machine speeds all come from the file.
+
+1,500 real jobs, 700 s, **verbatim deadlines**, 3 seeds:
+
+| Scheduler | Carbon (g) | Violations |
+| --- | --- | --- |
+| all-cloud (floor) | **156.5 ± 1.6** | 0.00% |
+| HEFT | 156.7 ± 1.9 | 0.00% |
+| Greedy-Latency | 157.7 ± 1.6 | 0.00% |
+| MERSEM-Carbon / Balanced | 171.2 ± 1.5 | 0.24% |
+| **PACT** | **178.2 ± 0.8** | 0.04% |
+| Greedy-Carbon | 184.6 ± 3.2 | 1.08% |
+| MERSEM-SLA | 351.8 ± 5.9 | 2.19% |
+| all-fog | 363.1 ± 0.6 | 0.23% |
+| Random | 365.1 ± 5.2 | 4.85% |
+
+**PACT loses.** It emits 13.7% more carbon than HEFT and 4.1% more than
+MERSEM-Carbon. We report this rather than quietly switching back to the
+workload where we win.
+
+### Why it loses, and why that is the interesting part
+
+On this benchmark the cloud tier is simultaneously the **fastest** (4.5× fog)
+and the **greenest** (consolidating work lets every other machine power-gate).
+So "minimise finish time" and "minimise carbon" are the *same* objective, and
+HEFT solves both by accident. There is no trade-off to navigate:
+
+- The SLA constraint never binds — λ stayed at 0 for all 45 training
+  iterations, because violations sit near 0% whatever you do.
+- Total spread between the best and worst *sensible* policy is ~0.2%
+  (156.5 g vs 156.7 g). A learned policy that explores can only do worse.
+
+A constrained formulation earns its keep when the constraint is *tight* and the
+objectives genuinely conflict. Here neither holds.
+
+### What this says about the paper
+
+Two observations, both from running their own data:
+
+1. The paper reports **10–12% carbon reductions**. We find its best
+   configuration (171.2 g) is **9.4% worse than sending everything to cloud**
+   (156.5 g) — the most trivial policy available.
+2. The paper reports **17–23% SLA violation rates** on this dataset. At its
+   verbatim deadlines we cannot drive any scheduler above ~5% without halving
+   the deadlines or saturating the hardware.
+
+Neither proves an error. Both are fair questions, and both need the paper's
+exact infrastructure and power model to settle.
+
+### So which result stands?
+
+Both, and that is the honest contribution:
+
+| Workload | Carbon/SLA conflict? | PACT vs best baseline |
+| --- | --- | --- |
+| ITMS scenario (synthetic) | Yes — edge is green but slow | **51% less carbon** |
+| Rezaee benchmark (real) | No — cloud wins on both | **13.7% worse** |
+
+The result is a **scoping claim**: carbon-aware scheduling pays off when tiers
+trade off against each other, and is counterproductive when one tier dominates
+on both axes. That is more useful than a single headline number, and it is
+falsifiable.
+
 ## What is actually new
 
 1. **Constrained MDP instead of a weighted sum.** Carbon is minimised subject to
@@ -64,6 +132,12 @@ Three results did not go our way, and all three are reported:
   We therefore **cannot** claim the open-loop-planning advantage empirically.
 - **Shield and DROP contribute nothing measurable** at this operating point.
   They are safety nets that do not bind here.
+- **PACT is beaten by HEFT on the paper's own dataset** (178.2 g vs 156.7 g).
+  See the benchmark section above.
+- **Unfinished jobs were not counted as violations** until we caught it. A
+  scheduler could hide misses by being slow; during training the policy found
+  exactly that exploit (completed jobs fell 442 to 190 at a reported 0%
+  violation rate). Fixed, and it changed earlier numbers slightly.
 
 ## Orchestration overhead — the claim that did not survive measurement
 

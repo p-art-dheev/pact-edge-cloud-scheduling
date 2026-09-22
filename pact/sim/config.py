@@ -57,6 +57,20 @@ class SimConfig:
     orch_power_w: float = 25.0          # watts per busy orchestrator core
     orch_region: int = 0
 
+    # --- workload source ---
+    workload: str = "synthetic"        # "synthetic" | "rezaee"
+    trace_cache: str = "data/rezaee/cache.pkl"
+    trace_scale: float = 1.0           # <1 compresses the real arrival stream
+    # Deadline tightness. 1.0 = the dataset's own deadlines verbatim. At 1.0 no
+    # scheduler we tested violates more than ~4%, yet the paper reports 17-23%
+    # on this dataset -- so we calibrate this factor to reproduce the operating
+    # regime the paper reports, and state the value used.
+    deadline_scale: float = 1.0
+    # Cap on replayed trace jobs. Training needs a horizon LONGER than the
+    # median deadline (294 s) for violations to be observable at all, so the
+    # job count is capped instead of the window shortened.
+    trace_max_jobs: int = 0            # 0 = all
+
     seed: int = 0
 
     def n_regions(self) -> int:
