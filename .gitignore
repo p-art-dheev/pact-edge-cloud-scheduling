@@ -4,3 +4,7 @@ models/*.pt
 
 # The source paper is the authors' work - keep it local, not in the repo
 *.pdf
+
+# Downloaded datasets - fetch with scripts/fetch_data.py
+data/
+zen.json
