@@ -103,6 +103,56 @@ trade off against each other, and is counterproductive when one tier dominates
 on both axes. That is more useful than a single headline number, and it is
 falsifiable.
 
+## Real carbon data — and a second negative result
+
+Carbon intensity now comes from the **UK National Grid ESO Carbon Intensity
+API** (carbonintensity.org.uk): 18 GB regions at 30-minute resolution, free and
+unauthenticated, fetched by `scripts/fetch_carbon.py`. Measured, not modelled.
+
+### Finding: siting dominates everything
+
+Our synthetic curve kept every region within ~3x of every other. The measured
+data spans **0 gCO2/kWh (North Scotland, running on wind) to 376 (South Wales)**
+over one day. Where you put a tier therefore decides the whole result:
+
+| Siting | all-cloud | all-fog | Is there a trade-off? |
+| --- | --- | --- | --- |
+| cloud-green | 8.4 g | 112.1 g | No — cloud wins by 13x |
+| uniform | 26.4 g | 70.9 g | No — cloud wins by 2.7x |
+| mixed | 27.9 g | 55.0 g | No — cloud wins by 2x |
+| **fog-green** | 54.5 g | **34.7 g** | **Yes — fog is 36% greener** |
+
+This is the most useful thing we found. **Carbon-aware scheduling is only worth
+doing when your green capacity is also your constrained capacity.** Under three
+of four realistic sitings, "send everything to cloud" is both the fastest and
+the greenest policy and no scheduler is needed at all.
+
+### The regime where the problem is real — and PACT still fails
+
+Under fog-green siting at saturation (3,500 real jobs, 700 s, 3 seeds), fog is
+greener but runs out of capacity, so a scheduler must decide what spills to
+cloud. A genuine 17% carbon prize, gated by an SLA constraint:
+
+| Scheduler | Carbon (g) | Violations |
+| --- | --- | --- |
+| HEFT | 101.0 ± 1.0 | 1.48% |
+| all-cloud | 99.0 ± 0.7 | 1.50% |
+| **PACT (ε = 3%)** | **81.6 ± 0.7** | **25.32%** |
+| all-fog | 82.5 ± 0.5 | 10.66% |
+| Greedy-Carbon | 67.6 ± 0.1 | 38.32% |
+
+**PACT misses its constraint by 8x** — 25.32% against a 3% budget — and is
+dominated by the trivial all-fog policy, which reaches the same carbon at less
+than half the violations. λ climbed to 3.43 over 40 iterations but never pulled
+violations down.
+
+So the constrained formulation, which worked cleanly on our synthetic workload,
+**does not hold its budget on real data under saturation**. The likely cause is
+credit assignment: under queueing, a deadline miss is caused by the aggregate of
+many earlier placements, and our per-decision cost cannot attribute it. That is
+a real limitation, not a tuning accident, and fixing it is the obvious next
+piece of work.
+
 ## What is actually new
 
 1. **Constrained MDP instead of a weighted sum.** Carbon is minimised subject to
@@ -133,7 +183,8 @@ Three results did not go our way, and all three are reported:
 - **Shield and DROP contribute nothing measurable** at this operating point.
   They are safety nets that do not bind here.
 - **PACT is beaten by HEFT on the paper's own dataset** (178.2 g vs 156.7 g).
-  See the benchmark section above.
+- **PACT misses its SLA budget by 8x under saturation with real carbon data**
+  (25.3% against a 3% target) and is dominated by a trivial all-fog policy.
 - **Unfinished jobs were not counted as violations** until we caught it. A
   scheduler could hide misses by being slow; during training the policy found
   exactly that exploit (completed jobs fell 442 to 190 at a reported 0%

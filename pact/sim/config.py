@@ -71,6 +71,11 @@ class SimConfig:
     # job count is capped instead of the window shortened.
     trace_max_jobs: int = 0            # 0 = all
 
+    # --- carbon source ---
+    carbon_source: str = "synthetic"   # "synthetic" | "real"
+    carbon_path: str = "data/carbon/uk_regional_24h.json"
+    siting: str = "mixed"              # see RealCarbonTrace.SITINGS
+
     seed: int = 0
 
     def n_regions(self) -> int:

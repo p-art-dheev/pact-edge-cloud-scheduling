@@ -185,13 +185,16 @@ if __name__ == "__main__":
     ap.add_argument("--trace-scale", type=float, default=0.5)
     ap.add_argument("--deadline-scale", type=float, default=1.0)
     ap.add_argument("--trace-max-jobs", type=int, default=500)
+    ap.add_argument("--carbon-source", default="synthetic")
+    ap.add_argument("--siting", default="mixed")
     a = ap.parse_args()
     ov = {}
     if a.workload == "rezaee":
         ov = {"workload": "rezaee", "trace_scale": a.trace_scale,
               "deadline_scale": a.deadline_scale, "n_edge": 30, "n_fog": 3,
               "servers_per_fog": 2, "cloud_servers": 1,
-              "trace_max_jobs": a.trace_max_jobs}
+              "trace_max_jobs": a.trace_max_jobs,
+              "carbon_source": a.carbon_source, "siting": a.siting}
     train(mode=a.mode, epsilon=a.epsilon, iters=a.iters, horizon=a.horizon,
           base_rate=a.rate, w_carbon=a.w_carbon, seed=a.seed, out=a.out,
           cfg_overrides=ov)

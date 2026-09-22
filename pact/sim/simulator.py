@@ -82,7 +82,12 @@ class Simulator:
 
         self.nodes: list[Node] = []
         self._build_infra()
-        self.carbon = CarbonTrace(cfg.n_regions(), seed=s)
+        if getattr(cfg, "carbon_source", "synthetic") == "real":
+            from .carbon import RealCarbonTrace
+            self.carbon = RealCarbonTrace(cfg.n_regions(), cfg.carbon_path,
+                                          siting=cfg.siting, seed=s)
+        else:
+            self.carbon = CarbonTrace(cfg.n_regions(), seed=s)
         if getattr(cfg, "workload", "synthetic") == "rezaee":
             from .rezaee import RezaeeWorkload, load_cache
             self.wl = RezaeeWorkload(load_cache(cfg.trace_cache), self.rng_wl, cfg)
