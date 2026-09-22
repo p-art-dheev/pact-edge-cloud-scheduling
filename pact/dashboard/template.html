@@ -1,0 +1,374 @@
+<title>PACT Control Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#f4f3f0; --panel:#ffffff; --panel-2:#eceae5;
+    --ink:#1b1f24; --ink-2:#5a646e; --ink-3:#8a949e;
+    --rule:#d8d5ce;
+    --amber:#c9821f; --amber-soft:#f0d9ad;
+    --green:#3f8a61; --red:#c0394b; --blue:#31607f;
+    --pact:#1b1f24; --mersem:#c0394b; --heft:#31607f;
+    --shadow:0 1px 2px rgba(20,24,28,.07),0 6px 18px rgba(20,24,28,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0e1216; --panel:#161b21; --panel-2:#1d242c;
+      --ink:#e9eaec; --ink-2:#9aa5b0; --ink-3:#6c7783;
+      --rule:#2a323b;
+      --amber:#e8a33d; --amber-soft:#4a3a1c;
+      --green:#57b183; --red:#e06274; --blue:#63a3c9;
+      --pact:#f2f3f4; --mersem:#e06274; --heft:#63a3c9;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0e1216; --panel:#161b21; --panel-2:#1d242c;
+    --ink:#e9eaec; --ink-2:#9aa5b0; --ink-3:#6c7783;
+    --rule:#2a323b;
+    --amber:#e8a33d; --amber-soft:#4a3a1c;
+    --green:#57b183; --red:#e06274; --blue:#63a3c9;
+    --pact:#f2f3f4; --mersem:#e06274; --heft:#63a3c9;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    margin:0; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1140px; margin:0 auto; padding-inline:16px; padding-block:26px 44px}
+  h1{
+    font-family:Archivo,system-ui,sans-serif; font-weight:700;
+    font-size:clamp(22px,3.4vw,31px); letter-spacing:-.02em;
+    margin:0 0 4px; text-wrap:balance;
+  }
+  .sub{color:var(--ink-2); font-size:14px; margin:0 0 22px; max-width:66ch}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:500;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3);
+  }
+
+  /* --- scenario selector: physical control buttons --- */
+  .scenarios{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px}
+  .scn{
+    font-family:"IBM Plex Sans",sans-serif; font-size:13px; font-weight:500;
+    background:var(--panel); color:var(--ink-2);
+    border:1px solid var(--rule); border-radius:3px;
+    padding:9px 13px; cursor:pointer; transition:.14s;
+    display:flex; align-items:center; gap:8px;
+  }
+  .scn:hover{border-color:var(--ink-3); color:var(--ink)}
+  .scn .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
+  .scn[aria-pressed="true"]{
+    background:var(--amber-soft); border-color:var(--amber);
+    color:var(--ink); font-weight:600;
+  }
+  .scn[aria-pressed="true"] .dot{background:var(--amber)}
+  .scn:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+
+  /* --- transport --- */
+  .transport{
+    display:flex; align-items:center; gap:14px; margin:0 0 20px;
+    background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+    padding:11px 14px; box-shadow:var(--shadow); flex-wrap:wrap;
+  }
+  .play{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600;
+    background:var(--ink); color:var(--ground); border:0; border-radius:3px;
+    padding:8px 16px; cursor:pointer; min-width:78px; letter-spacing:.04em;
+  }
+  .play:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+  input[type=range]{flex:1; min-width:150px; accent-color:var(--amber)}
+  .clock{
+    font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:600;
+    font-variant-numeric:tabular-nums; color:var(--ink);
+  }
+  .clock small{color:var(--ink-3); font-weight:400}
+
+  /* --- scoreboard --- */
+  .board{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:0 0 18px}
+  .card{
+    background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+    padding:14px 15px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .card::before{content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--who)}
+  .card.pact{--who:var(--pact)} .card.mersem{--who:var(--mersem)} .card.heft{--who:var(--heft)}
+  .card h3{
+    font-family:Archivo,sans-serif; font-size:14px; font-weight:600; margin:0 0 10px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .tag{
+    font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-3); font-weight:500;
+  }
+  .metric{display:flex; align-items:baseline; justify-content:space-between; padding:4px 0}
+  .metric .k{font-size:12px; color:var(--ink-2)}
+  .metric .v{
+    font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .v.ok{color:var(--green)} .v.bad{color:var(--red)} .v.warn{color:var(--amber)}
+  .pill{
+    font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600;
+    padding:2px 7px; border-radius:2px; letter-spacing:.05em; text-transform:uppercase;
+  }
+  .pill.ok{background:var(--green); color:var(--panel)}
+  .pill.bad{background:var(--red); color:var(--panel)}
+
+  /* --- charts --- */
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px}
+  .chart{
+    background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+    padding:14px 15px 10px; box-shadow:var(--shadow);
+  }
+  .chart h4{
+    font-family:Archivo,sans-serif; font-size:13px; font-weight:600;
+    margin:0 0 2px; letter-spacing:-.01em;
+  }
+  .chart p{font-size:11.5px; color:var(--ink-3); margin:0 0 10px}
+  svg{display:block; width:100%; height:auto; overflow:visible}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:8px}
+  .legend span{
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-2);
+    display:flex; align-items:center; gap:5px;
+  }
+  .swatch{width:14px; height:2.5px; border-radius:1px; flex:none}
+
+  .note{
+    background:var(--panel-2); border-left:2px solid var(--amber);
+    padding:12px 14px; border-radius:0 3px 3px 0; font-size:12.5px;
+    color:var(--ink-2); margin-top:18px;
+  }
+  .note strong{color:var(--ink); font-weight:600}
+  table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px}
+  th,td{text-align:right; padding:6px 8px; border-bottom:1px solid var(--rule)}
+  th:first-child,td:first-child{text-align:left}
+  th{
+    font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-3); font-weight:500;
+  }
+  td{font-variant-numeric:tabular-nums; font-family:"IBM Plex Mono",monospace}
+  td:first-child{font-family:"IBM Plex Sans",sans-serif}
+  .scroll{overflow-x:auto}
+  @media (max-width:760px){
+    .board{grid-template-columns:1fr}
+    .charts{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Edge&ndash;cloud scheduling &middot; live replay</p>
+  <h1>PACT Control Room</h1>
+  <p class="sub">
+    Carbon-aware task placement for a city traffic-management system, under an
+    explicit SLA budget. Every scenario replays the <em>same</em> event stream
+    through three schedulers. Pick a shock and watch how each one responds.
+  </p>
+
+  <div class="scenarios" id="scenarios" role="group" aria-label="Scenario"></div>
+
+  <div class="transport">
+    <button class="play" id="play" type="button">&#9654; Play</button>
+    <input type="range" id="scrub" min="0" max="59" value="59" step="1" aria-label="Timeline position">
+    <span class="clock" id="clock">18:00 <small>&nbsp;/&nbsp;+0s</small></span>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="charts">
+    <div class="chart">
+      <h4>SLA violation rate against budget</h4>
+      <p>The dashed line is the contracted budget &epsilon;. Staying under it is the whole job.</p>
+      <svg id="violChart" viewBox="0 0 440 190" role="img" aria-label="SLA violation rate over time"></svg>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--pact)"></i>PACT</span>
+        <span><i class="swatch" style="background:var(--mersem)"></i>MERSEM</span>
+        <span><i class="swatch" style="background:var(--heft)"></i>HEFT</span>
+        <span><i class="swatch" style="background:var(--amber)"></i>budget &epsilon;</span>
+      </div>
+    </div>
+    <div class="chart">
+      <h4>Cumulative carbon</h4>
+      <p>Grid carbon intensity in grey behind &mdash; the evening coal ramp.</p>
+      <svg id="carbChart" viewBox="0 0 440 190" role="img" aria-label="Cumulative carbon emissions over time"></svg>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--pact)"></i>PACT</span>
+        <span><i class="swatch" style="background:var(--mersem)"></i>MERSEM</span>
+        <span><i class="swatch" style="background:var(--heft)"></i>HEFT</span>
+        <span><i class="swatch" style="background:var(--ink-3)"></i>grid gCO&#8322;/kWh</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart">
+    <h4>Final tally for this scenario</h4>
+    <p>Totals over the full replay, same event stream for every scheduler.</p>
+    <div class="scroll">
+      <table id="tally">
+        <thead><tr>
+          <th>Scheduler</th><th>Carbon (g)</th><th>Violations</th>
+          <th>p95 latency</th><th>Jobs</th><th>Dropped</th><th>Orch. CPU</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note" id="takeaway"></div>
+</div>
+
+<script>
+const DATA = __REPLAY_DATA__;
+const NAMES = ["PACT","MERSEM","HEFT"];
+const COLORS = {PACT:"--pact", MERSEM:"--mersem", HEFT:"--heft"};
+let scn = "normal", frame = DATA.bins - 1, timer = null;
+
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = id => document.getElementById(id);
+
+/* ---------- scenario buttons ---------- */
+const scnBox = $("scenarios");
+Object.entries(DATA.scenarios).forEach(([k, v]) => {
+  const b = document.createElement("button");
+  b.className = "scn"; b.type = "button";
+  b.setAttribute("aria-pressed", k === scn);
+  b.innerHTML = '<i class="dot"></i>' + v.label;
+  b.onclick = () => {
+    scn = k;
+    [...scnBox.children].forEach((c, i) =>
+      c.setAttribute("aria-pressed", Object.keys(DATA.scenarios)[i] === k));
+    render();
+  };
+  scnBox.appendChild(b);
+});
+
+/* ---------- transport ---------- */
+$("scrub").max = DATA.bins - 1;
+$("scrub").oninput = e => { frame = +e.target.value; stop(); render(); };
+$("play").onclick = () => timer ? stop() : start();
+function start(){
+  if (frame >= DATA.bins - 1) frame = 0;
+  $("play").innerHTML = "&#10073;&#10073; Pause";
+  timer = setInterval(() => {
+    frame++;
+    if (frame >= DATA.bins - 1){ frame = DATA.bins - 1; stop(); }
+    $("scrub").value = frame; render();
+  }, 90);
+}
+function stop(){ clearInterval(timer); timer = null; $("play").innerHTML = "&#9654; Play"; }
+
+/* ---------- drawing helpers ---------- */
+function path(vals, x, y){
+  return vals.map((v,i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+}
+function axes(svg, W, H, P, yMax, unit){
+  const rule = cssv("--rule"), ink3 = cssv("--ink-3");
+  for (let i = 0; i <= 4; i++){
+    const yv = yMax * i / 4, yy = H - P - (H - 2*P) * (i/4);
+    svg.push(`<line x1="${P}" y1="${yy.toFixed(1)}" x2="${W-6}" y2="${yy.toFixed(1)}" stroke="${rule}" stroke-width="1"/>`);
+    svg.push(`<text x="${P-6}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="9" font-family="IBM Plex Mono, monospace" fill="${ink3}">${yv.toFixed(yMax<3?1:0)}${i===4?unit:""}</text>`);
+  }
+}
+
+/* ---------- charts ---------- */
+function drawViol(){
+  const W=440,H=190,P=34, runs=DATA.scenarios[scn].runs;
+  const eps=DATA.epsilon;
+  let peak=eps*1.6;
+  NAMES.forEach(n => runs[n].viol.slice(0,frame+1).forEach(v => peak=Math.max(peak,v)));
+  const yMax=Math.max(0.10, Math.ceil(peak*110)/100);
+  const x=i=>P+(W-P-6)*(i/(DATA.bins-1)), y=v=>H-P-(H-2*P)*Math.min(1,v/yMax);
+  const s=[]; axes(s,W,H,P,yMax*100,"%");
+  s.push(`<line x1="${P}" y1="${y(eps).toFixed(1)}" x2="${W-6}" y2="${y(eps).toFixed(1)}" stroke="${cssv("--amber")}" stroke-width="1.5" stroke-dasharray="5 3"/>`);
+  NAMES.forEach(n=>{
+    const v=runs[n].viol.slice(0,frame+1); if(!v.length) return;
+    s.push(`<path d="${path(v,x,y)}" fill="none" stroke="${cssv(COLORS[n])}" stroke-width="${n==="PACT"?2.6:1.5}" stroke-linejoin="round" stroke-linecap="round" opacity="${n==="PACT"?1:.82}"/>`);
+    s.push(`<circle cx="${x(v.length-1).toFixed(1)}" cy="${y(v[v.length-1]).toFixed(1)}" r="${n==="PACT"?4:3}" fill="${cssv(COLORS[n])}"/>`);
+  });
+  $("violChart").innerHTML=s.join("");
+}
+function drawCarb(){
+  const W=440,H=190,P=40, runs=DATA.scenarios[scn].runs;
+  let yMax=1; NAMES.forEach(n=>yMax=Math.max(yMax,runs[n].carbon_cum[DATA.bins-1]));
+  yMax=Math.ceil(yMax/5)*5;
+  const x=i=>P+(W-P-6)*(i/(DATA.bins-1)), y=v=>H-P-(H-2*P)*Math.min(1,v/yMax);
+  const s=[]; axes(s,W,H,P,yMax,"g");
+  const ci=runs.PACT.ci, ciMax=Math.max(...ci)*1.05, ciMin=Math.min(...ci)*0.95;
+  const yc=v=>H-P-(H-2*P)*((v-ciMin)/(ciMax-ciMin));
+  s.push(`<path d="${path(ci,x,yc)}" fill="none" stroke="${cssv("--ink-3")}" stroke-width="1" stroke-dasharray="2 3" opacity=".65"/>`);
+  NAMES.forEach(n=>{
+    const v=runs[n].carbon_cum.slice(0,frame+1); if(!v.length) return;
+    s.push(`<path d="${path(v,x,y)}" fill="none" stroke="${cssv(COLORS[n])}" stroke-width="${n==="PACT"?2.6:1.5}" stroke-linejoin="round" opacity="${n==="PACT"?1:.82}"/>`);
+    s.push(`<circle cx="${x(v.length-1).toFixed(1)}" cy="${y(v[v.length-1]).toFixed(1)}" r="${n==="PACT"?4:3}" fill="${cssv(COLORS[n])}"/>`);
+  });
+  $("carbChart").innerHTML=s.join("");
+}
+
+/* ---------- scoreboard + tally ---------- */
+function drawBoard(){
+  const runs=DATA.scenarios[scn].runs, eps=DATA.epsilon;
+  $("board").innerHTML = NAMES.map(n=>{
+    const r=runs[n];
+    const win=Math.max(0,frame-5);
+    const slice=r.viol.slice(win,frame+1).filter(v=>v>0);
+    const cur=slice.length?slice.reduce((a,b)=>a+b,0)/slice.length:r.viol[frame]||0;
+    const ok=cur<=eps;
+    return `<div class="card ${n.toLowerCase()}">
+      <h3>${n}<span class="pill ${ok?"ok":"bad"}">${ok?"in budget":"over"}</span></h3>
+      <div class="metric"><span class="k">violation rate now</span>
+        <span class="v ${ok?"ok":"bad"}">${(cur*100).toFixed(1)}%</span></div>
+      <div class="metric"><span class="k">carbon so far</span>
+        <span class="v">${r.carbon_cum[frame].toFixed(1)}<span class="tag"> g</span></span></div>
+      <div class="metric"><span class="k">orchestrator CPU</span>
+        <span class="v">${r.orch_cpu_s.toFixed(2)}<span class="tag"> s</span></span></div>
+    </div>`;
+  }).join("");
+}
+function drawTally(){
+  const runs=DATA.scenarios[scn].runs, eps=DATA.epsilon;
+  const best=Math.min(...NAMES.map(n=>runs[n].total_carbon));
+  $("tally").querySelector("tbody").innerHTML = NAMES.map(n=>{
+    const r=runs[n], ok=r.viol_rate<=eps*1.2;
+    return `<tr>
+      <td><strong>${n}</strong></td>
+      <td${r.total_carbon===best?' style="color:var(--green);font-weight:600"':""}>${r.total_carbon.toFixed(1)}</td>
+      <td style="color:${ok?"var(--green)":"var(--red)"}">${(r.viol_rate*100).toFixed(1)}%</td>
+      <td>${r.p95.toFixed(2)} s</td><td>${r.jobs}</td><td>${r.dropped}</td>
+      <td>${r.orch_cpu_s.toFixed(2)} s</td></tr>`;
+  }).join("");
+
+  const p=runs.PACT, m=runs.MERSEM, h=runs.HEFT;
+  const dC=((m.total_carbon-p.total_carbon)/m.total_carbon*100);
+  const base=DATA.scenarios.normal.runs.PACT;
+  const unmoved = scn!=="normal" &&
+    Math.abs(p.total_carbon-base.total_carbon)/base.total_carbon < 0.02 &&
+    Math.abs(p.viol_rate-base.viol_rate) < 0.004;
+  $("takeaway").innerHTML =
+    `<strong>${DATA.scenarios[scn].label}.</strong> PACT finishes at
+     <strong>${p.total_carbon.toFixed(1)} g</strong> with
+     <strong>${(p.viol_rate*100).toFixed(1)}%</strong> violations against a
+     ${(eps*100).toFixed(0)}% budget. MERSEM plans the epoch ahead from a forecast
+     and lands at ${m.total_carbon.toFixed(1)} g and ${(m.viol_rate*100).toFixed(1)}%;
+     HEFT ignores carbon entirely and spends ${h.total_carbon.toFixed(1)} g.
+     ${dC>0?`That is <strong>${dC.toFixed(1)}% less carbon than MERSEM</strong>.`:""}
+     ${unmoved?` <em>PACT is essentially unchanged from the no-shock run here &mdash;
+     it had already consolidated onto edge and local fog capacity, so losing a fog
+     server takes away little it was using. Cheap placement turned out to be
+     resilient placement.</em>`:""}
+     ${m.viol_rate<=0.0005?` <em>MERSEM holds 0% throughout, but it does so by
+     routing to cloud regardless of conditions &mdash; safety bought with carbon,
+     not with scheduling.</em>`:""}`;
+}
+
+function render(){
+  const secs=(frame/(DATA.bins-1))*DATA.horizon;
+  const tot=DATA.start_hour*3600+secs;
+  const hh=String(Math.floor(tot/3600)%24).padStart(2,"0");
+  const mm=String(Math.floor(tot/60)%60).padStart(2,"0");
+  $("clock").innerHTML=`${hh}:${mm} <small>&nbsp;/&nbsp;+${secs.toFixed(0)}s</small>`;
+  drawViol(); drawCarb(); drawBoard(); drawTally();
+}
+$("scrub").value=frame;
+render();
+</script>
